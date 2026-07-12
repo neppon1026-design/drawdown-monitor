@@ -1,0 +1,38 @@
+{
+  "note": "銘柄マスタ（公開用）。金額(評価額)はここに置かず、GitHub Secret WEIGHTS(JSON: wkey->円)から読む。wkey=account:code。code=協会コード(Yahoo), isin=投信ライブラリーCSVバックフィル用(空=不可)。",
+  "types": {
+    "world":   {"name": "全世界株式"},
+    "dev":     {"name": "先進国株式"},
+    "jp":      {"name": "国内株式"},
+    "em":      {"name": "新興国株式"},
+    "reit":    {"name": "REIT（不動産）"},
+    "devbond": {"name": "先進国債券"},
+    "jpbond":  {"name": "国内債券"},
+    "bal":     {"name": "バランス"}
+  },
+  "type_order": ["world", "dev", "jp", "em", "reit", "devbond", "jpbond", "bal"],
+  "funds": [
+    {"code": "0331418A", "isin": "JP90C000H1T1", "wkey": "tn:0331418A", "name": "eMAXIS Slim 全世界株式（オール・カントリー）", "short": "オルカン",              "type": "world",   "account": "tn"},
+    {"code": "29311041", "isin": "JP90C0001R39", "wkey": "tn:29311041", "name": "ニッセイ日経225インデックスファンド",       "short": "日経225",              "type": "jp",      "account": "tn"},
+    {"code": "6431208C", "isin": "JP90C0005Z76", "wkey": "tn:6431208C", "name": "SMT 新興国株式インデックス・オープン",       "short": "SMT 新興国株式",       "type": "em",      "account": "tn"},
+    {"code": "64318081", "isin": "JP90C0005614", "wkey": "tn:64318081", "name": "SMT グローバルREITインデックス・オープン",   "short": "SMT グローバルREIT",   "type": "reit",    "account": "tn"},
+    {"code": "0331219A", "isin": "JP90C000JD31", "wkey": "tn:0331219A", "name": "eMAXIS Slim 先進国リートインデックス（除く日本）", "short": "先進国リート(除く日本)", "type": "reit", "account": "tn"},
+    {"code": "4731C15C", "isin": "JP90C000CML2", "wkey": "tn:4731C15C", "name": "たわらノーロード 先進国債券",              "short": "たわら 先進国債券",     "type": "devbond", "account": "tn"},
+
+    {"code": "7831601C", "isin": "", "wkey": "dc:7831601C", "name": "日立 外国株式インデックスファンド", "short": "日立 外国株式",   "type": "dev",     "account": "dc"},
+    {"code": "7831401C", "isin": "", "wkey": "dc:7831401C", "name": "日立 国内株式インデックスファンド", "short": "日立 国内株式",   "type": "jp",      "account": "dc"},
+    {"code": "7831701C", "isin": "", "wkey": "dc:7831701C", "name": "日立 外国債券インデックスファンド", "short": "日立 外国債券",   "type": "devbond", "account": "dc"},
+    {"code": "7831501C", "isin": "", "wkey": "dc:7831501C", "name": "日立 国内債券インデックスファンド", "short": "日立 国内債券",   "type": "jpbond",  "account": "dc"},
+    {"code": "7831101C", "isin": "", "wkey": "dc:7831101C", "name": "日立 バランスファンド（株式70）",   "short": "日立 バランス70", "type": "bal",     "account": "dc"},
+    {"code": "0331418A", "isin": "JP90C000H1T1", "wkey": "dc:0331418A", "name": "三菱UFJ スリム全世界株式（DC・正式コード要確認）", "short": "三菱UFJ スリム全世界", "type": "world", "account": "dc", "needs_confirm": true},
+    {"code": "79314169", "isin": "", "wkey": "dc:79314169", "name": "三井住友・DC外国リートインデックスファンド", "short": "三井住友DC 外国リート", "type": "reit", "account": "dc"},
+    {"code": "29314136", "isin": "", "wkey": "dc:29314136", "name": "ニッセイ Jリートインデックスファンド（DC・要確認）", "short": "ニッセイ Jリート", "type": "reit", "account": "dc", "needs_confirm": true}
+  ],
+  "benchmarks": {
+    "_note": "資産クラス代表指数（円ベース）。実データ接続は次段階。",
+    "dev": [
+      {"label": "MSCIコクサイ（円）", "source": "pending"},
+      {"label": "S&P500（円ベース）", "source": "pending"}
+    ]
+  }
+}

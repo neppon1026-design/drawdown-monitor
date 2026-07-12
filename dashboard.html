@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>投資信託ドローダウン監視</title>
+<style>
+  :root {
+    --paper:#f5f7fa; --card:#ffffff; --ink:#1a2130; --muted:#5c6675; --faint:#8a94a4;
+    --line:#e3e8ef; --line-strong:#cbd3de; --accent:#2f6f8f;
+    --zone-watch:#d99a2b; --zone-deep:#d0533f; --zone-safe:#3f9b6b;
+    --watch-bg:rgba(217,154,43,0.10); --deep-bg:rgba(208,83,63,0.10);
+    --grid:rgba(90,100,117,0.16);
+    --shadow:0 1px 2px rgba(20,33,48,0.06),0 4px 16px rgba(20,33,48,0.05);
+    --mono:ui-monospace,"SF Mono","SFMono-Regular","Menlo","Consolas",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic","Meiryo",sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:#10151d; --card:#171e29; --ink:#e7ecf3; --muted:#9aa5b4; --faint:#6c7787;
+      --line:#242d3a; --line-strong:#33404f; --accent:#6bb8d6;
+      --zone-watch:#e6b34d; --zone-deep:#e0705c; --zone-safe:#5cba86;
+      --watch-bg:rgba(230,179,77,0.12); --deep-bg:rgba(224,112,92,0.12);
+      --grid:rgba(154,165,180,0.16);
+      --shadow:0 1px 2px rgba(0,0,0,0.3),0 4px 18px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="light"]{--paper:#f5f7fa;--card:#fff;--ink:#1a2130;--muted:#5c6675;--faint:#8a94a4;--line:#e3e8ef;--line-strong:#cbd3de;--accent:#2f6f8f;--zone-watch:#d99a2b;--zone-deep:#d0533f;--zone-safe:#3f9b6b;--watch-bg:rgba(217,154,43,0.10);--deep-bg:rgba(208,83,63,0.10);--grid:rgba(90,100,117,0.16);--shadow:0 1px 2px rgba(20,33,48,0.06),0 4px 16px rgba(20,33,48,0.05);}
+  :root[data-theme="dark"]{--paper:#10151d;--card:#171e29;--ink:#e7ecf3;--muted:#9aa5b4;--faint:#6c7787;--line:#242d3a;--line-strong:#33404f;--accent:#6bb8d6;--zone-watch:#e6b34d;--zone-deep:#e0705c;--zone-safe:#5cba86;--watch-bg:rgba(230,179,77,0.12);--deep-bg:rgba(224,112,92,0.12);--grid:rgba(154,165,180,0.16);--shadow:0 1px 2px rgba(0,0,0,0.3),0 4px 18px rgba(0,0,0,0.35);}
+
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:980px;margin:0 auto;padding:32px 20px 64px;}
+
+  header{margin-bottom:20px;}
+  .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700;margin:0 0 6px;}
+  h1{font-size:clamp(22px,4vw,30px);margin:0 0 8px;letter-spacing:-.01em;text-wrap:balance;}
+  .sub{color:var(--muted);font-size:14px;margin:0;max-width:64ch;}
+  .sub b{color:var(--ink);font-weight:600;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:14px;font-size:12.5px;color:var(--faint);}
+  .meta b{color:var(--muted);font-weight:600;}
+
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0;}
+  .pcard{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:13px 16px;display:flex;align-items:center;gap:12px;}
+  .pcard .body{min-width:0;flex:1;}
+  .pcard .t{font-size:13px;font-weight:600;}
+  .pcard .s{font-size:11.5px;color:var(--faint);margin-top:2px;}
+  .pcard .now{margin-left:auto;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;}
+  .pcard .now .v{font-size:22px;font-weight:600;line-height:1;}
+  .pcard .now .k{font-size:10.5px;color:var(--muted);margin-top:3px;}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:14px 16px 12px;}
+  .phead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 2px 10px;}
+  .phead h2{font-size:14px;margin:0;font-weight:700;}
+  .phead .upd{font-size:11px;color:var(--muted);background:var(--paper);border:1px solid var(--line);padding:2px 8px;border-radius:5px;}
+
+  .tabs{display:flex;flex-wrap:wrap;gap:5px;margin:0 2px 12px;padding-bottom:10px;border-bottom:1px solid var(--line);}
+  .tabs button{border:1px solid var(--line);background:transparent;color:var(--muted);font-family:var(--sans);font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;cursor:pointer;transition:background .15s,color .15s,border-color .15s;}
+  .tabs button:hover{border-color:var(--line-strong);color:var(--ink);}
+  .tabs button[aria-selected="true"]{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  @media (prefers-color-scheme: dark){.tabs button[aria-selected="true"]{color:#0d1219;}}
+  :root[data-theme="dark"] .tabs button[aria-selected="true"]{color:#0d1219;}
+  :root[data-theme="light"] .tabs button[aria-selected="true"]{color:#fff;}
+
+  .chartbox{position:relative;width:100%;}
+  canvas{display:block;width:100%;height:380px;touch-action:none;}
+  .tip{position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--line-strong);border-radius:8px;box-shadow:var(--shadow);padding:8px 10px;font-size:11.5px;opacity:0;transition:opacity .1s;z-index:3;min-width:150px;}
+  .tip .d{color:var(--faint);font-size:11px;margin-bottom:5px;}
+  .tip .r{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-variant-numeric:tabular-nums;line-height:1.7;}
+  .tip .r .dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .tip .r .nm{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;}
+  .tip .r .vv{margin-left:auto;font-weight:600;}
+  .tip .more{color:var(--faint);font-size:10.5px;margin-top:3px;}
+
+  .lgdrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:11px 2px 2px;}
+  .lgd{display:flex;flex-wrap:wrap;gap:6px;flex:1;}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 8px;cursor:pointer;background:transparent;user-select:none;transition:opacity .15s,border-color .15s;}
+  .chip .dot{width:9px;height:9px;border-radius:50%;flex:none;}
+  .chip .dash{width:17px;height:0;border-top:2.5px dashed;flex:none;}
+  .chip.off{opacity:.4;}
+  .chip.off .nm{text-decoration:line-through;}
+  .chip:hover{border-color:var(--line-strong);}
+  .links{display:flex;gap:4px;align-items:center;flex:none;}
+  .links button{font-size:11.5px;color:var(--accent);background:transparent;border:0;cursor:pointer;padding:3px 6px;font-family:var(--sans);border-radius:5px;}
+  .links button:hover{background:var(--paper);}
+  .links .sep{color:var(--line-strong);font-size:11px;}
+  .benchnote{font-size:11px;color:var(--faint);margin:8px 2px 0;font-style:italic;}
+
+  .tablecard{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px 16px 14px;margin-top:18px;}
+  .tcap{font-size:14px;font-weight:700;margin:0 2px 12px;}
+  .tablewrap{overflow-x:auto;}
+  table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px;}
+  thead th{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--muted);text-align:right;padding:0 10px 8px;border-bottom:1px solid var(--line-strong);white-space:nowrap;}
+  thead th.nm{text-align:left;}
+  tbody td{padding:9px 10px;border-bottom:1px solid var(--line);font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;}
+  tbody td.nm{text-align:left;font-family:var(--sans);display:flex;align-items:center;gap:8px;min-width:0;}
+  tbody td.nm .dot{width:9px;height:9px;border-radius:50%;flex:none;}
+  tbody tr:hover td{background:var(--paper);}
+  .grouprow td{padding:12px 10px 6px;font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--faint);text-transform:uppercase;text-align:left;border-bottom:0;}
+  .dd0{font-weight:600;}
+  .dd0.safe{color:var(--muted);} .dd0.watch{color:var(--zone-watch);} .dd0.deep{color:var(--zone-deep);}
+  .chg{font-size:12px;}
+  .chg.up{color:var(--zone-safe);} .chg.down{color:var(--zone-deep);} .chg.flat{color:var(--faint);}
+  .tnote{font-size:11.5px;color:var(--faint);margin:12px 2px 0;line-height:1.6;}
+  .tnote b{color:var(--muted);font-weight:600;}
+
+  footer{margin-top:24px;font-size:12px;color:var(--faint);line-height:1.7;}
+  footer b{color:var(--muted);font-weight:600;}
+
+  @media (max-width:640px){.cards{grid-template-columns:1fr;}canvas{height:320px;}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">買い増しタイミング監視</p>
+    <h1>投信ドローダウン・ダッシュボード</h1>
+    <p class="sub">保有投信の「直近ピークからの下落率」を、<b>投資信託ごとの折れ線</b>で表示します。上のタブで資産タイプごとに絞り込め、<b>-10%・-20%</b>を横の基準線として押し目のタイミングを見ます。</p>
+    <div class="meta">
+      <span><b>最新基準日</b> <span id="m-asof">—</span></span>
+      <span><b>銘柄</b> <span id="m-nfunds">—</span>本</span>
+      <span><b>基準</b> 各銘柄の設定来（取得範囲）ピーク＝0%</span>
+    </div>
+  </header>
+
+  <div class="cards">
+    <div class="pcard">
+      <div class="body"><div class="t">特定口座 ＋ NISA（6本）</div><div class="s">マネックス証券／いつでも売買可</div></div>
+      <div class="now"><div class="v" id="now1">—</div><div class="k">現在DD（口座計）</div></div>
+    </div>
+    <div class="pcard">
+      <div class="body"><div class="t">DC ＋ iDeCo（8本）</div><div class="s">日立ほか／長期・参考</div></div>
+      <div class="now"><div class="v" id="now2">—</div><div class="k">現在DD（口座計）</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="phead">
+      <h2>日次ドローダウン推移</h2>
+      <span class="upd">更新 <span id="m-gen">—</span></span>
+    </div>
+    <div class="tabs" id="tabs" role="tablist" aria-label="資産タイプ"></div>
+    <div class="chartbox">
+      <canvas id="chart"></canvas>
+      <div class="tip" id="tip"></div>
+    </div>
+    <div class="lgdrow">
+      <div class="lgd" id="legend"></div>
+      <div class="links">
+        <button id="showAll" type="button">全表示</button>
+        <span class="sep">/</span>
+        <button id="hideAll" type="button">全非表示</button>
+      </div>
+    </div>
+    <div class="benchnote" id="benchnote"></div>
+  </div>
+
+  <div class="tablecard">
+    <div class="tcap">銘柄別ドローダウンと変化</div>
+    <div class="tablewrap">
+      <table id="ddtable">
+        <thead>
+          <tr><th class="nm">銘柄</th><th>現在DD</th><th>前日差</th><th>前週差</th><th>前月差</th></tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p class="tnote">差分＝<b>現在DD − 過去DD</b>（単位:pt）。<b style="color:var(--zone-deep)">▼マイナス＝さらに下落</b>（押し目寄り）／<b style="color:var(--zone-safe)">▲プラス＝回復</b>。前日=1営業日前、前週=5営業日前、前月=21営業日前。「—」は履歴がまだ不足（DC銘柄は稼働日から蓄積）。</p>
+  </div>
+
+  <footer>
+    <p><b>読み方：</b>縦軸はドローダウン（0%＝各銘柄の設定来ピーク、下ほど下落）。横軸は日付。オレンジ破線＝-10%（買い増し検討）、赤破線＝-20%（積極検討）。線に触れると各銘柄の数値、凡例クリックで表示/非表示。</p>
+    <p><b>データ：</b>基準価額はYahoo!ファイナンス（協会コード）から日次取得。公募6本は投信ライブラリーCSVで設定来をバックフィル済み。<b id="m-dcnote">DC銘柄はISIN未公開のため稼働日から前方蓄積</b>（日が進むほど線が伸びます）。基準価額は翌営業日確定のため実質1営業日遅れ。</p>
+    <p><b>指数（破線）：</b>「先進国株式」タブに円ベースの代表指数（MSCIコクサイ・S&amp;P500）を重ねる枠を用意。<span id="m-benchstate">現在は指数データ未接続（次段階で実データを接続）</span>。</p>
+    <p><b>要確認：</b>「三菱UFJ スリム全世界株式」「ニッセイ Jリート」はDC内の正式コードが未確定（推定コードで表示中）。</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  const DATA = {"asof":"2026-07-10","generated":"2026-07-12 18:15","dates":["2025-07-10","2025-07-11","2025-07-14","2025-07-15","2025-07-16","2025-07-17","2025-07-18","2025-07-22","2025-07-23","2025-07-24","2025-07-25","2025-07-28","2025-07-29","2025-07-30","2025-07-31","2025-08-01","2025-08-04","2025-08-05","2025-08-06","2025-08-07","2025-08-08","2025-08-12","2025-08-13","2025-08-14","2025-08-15","2025-08-18","2025-08-19","2025-08-20","2025-08-21","2025-08-22","2025-08-25","2025-08-26","2025-08-27","2025-08-28","2025-08-29","2025-09-01","2025-09-02","2025-09-03","2025-09-04","2025-09-05","2025-09-08","2025-09-09","2025-09-10","2025-09-11","2025-09-12","2025-09-16","2025-09-17","2025-09-18","2025-09-19","2025-09-22","2025-09-24","2025-09-25","2025-09-26","2025-09-29","2025-09-30","2025-10-01","2025-10-02","2025-10-03","2025-10-06","2025-10-07","2025-10-08","2025-10-09","2025-10-10","2025-10-14","2025-10-15","2025-10-16","2025-10-17","2025-10-20","2025-10-21","2025-10-22","2025-10-23","2025-10-24","2025-10-27","2025-10-28","2025-10-29","2025-10-30","2025-10-31","2025-11-04","2025-11-05","2025-11-06","2025-11-07","2025-11-10","2025-11-11","2025-11-12","2025-11-13","2025-11-14","2025-11-17","2025-11-18","2025-11-19","2025-11-20","2025-11-21","2025-11-25","2025-11-26","2025-11-27","2025-11-28","2025-12-01","2025-12-02","2025-12-03","2025-12-04","2025-12-05","2025-12-08","2025-12-09","2025-12-10","2025-12-11","2025-12-12","2025-12-15","2025-12-16","2025-12-17","2025-12-18","2025-12-19","2025-12-22","2025-12-23","2025-12-24","2025-12-25","2025-12-26","2025-12-29","2025-12-30","2026-01-05","2026-01-06","2026-01-07","2026-01-08","2026-01-09","2026-01-13","2026-01-14","2026-01-15","2026-01-16","2026-01-19","2026-01-20","2026-01-21","2026-01-22","2026-01-23","2026-01-26","2026-01-27","2026-01-28","2026-01-29","2026-01-30","2026-02-02","2026-02-03","2026-02-04","2026-02-05","2026-02-06","2026-02-09","2026-02-10","2026-02-12","2026-02-13","2026-02-16","2026-02-17","2026-02-18","2026-02-19","2026-02-20","2026-02-24","2026-02-25","2026-02-26","2026-02-27","2026-03-02","2026-03-03","2026-03-04","2026-03-05","2026-03-06","2026-03-09","2026-03-10","2026-03-11","2026-03-12","2026-03-13","2026-03-16","2026-03-17","2026-03-18","2026-03-19","2026-03-23","2026-03-24","2026-03-25","2026-03-26","2026-03-27","2026-03-30","2026-03-31","2026-04-01","2026-04-02","2026-04-03","2026-04-06","2026-04-07","2026-04-08","2026-04-09","2026-04-10","2026-04-13","2026-04-14","2026-04-15","2026-04-16","2026-04-17","2026-04-20","2026-04-21","2026-04-22","2026-04-23","2026-04-24","2026-04-27","2026-04-28","2026-04-30","2026-05-01","2026-05-07","2026-05-08","2026-05-11","2026-05-12","2026-05-13","2026-05-14","2026-05-15","2026-05-18","2026-05-19","2026-05-20","2026-05-21","2026-05-22","2026-05-25","2026-05-26","2026-05-27","2026-05-28","2026-05-29","2026-06-01","2026-06-02","2026-06-03","2026-06-04","2026-06-05","2026-06-08","2026-06-09","2026-06-10","2026-06-11","2026-06-12","2026-06-15","2026-06-16","2026-06-17","2026-06-18","2026-06-19","2026-06-22","2026-06-23","2026-06-24","2026-06-25","2026-06-26","2026-06-29","2026-06-30","2026-07-01","2026-07-02","2026-07-03","2026-07-06","2026-07-07","2026-07-08","2026-07-09","2026-07-10"],"types":{"world":"全世界株式","dev":"先進国株式","jp":"国内株式","em":"新興国株式","reit":"REIT（不動産）","devbond":"先進国債券","jpbond":"国内債券","bal":"バランス"},"type_order":["world","dev","jp","em","reit","devbond","jpbond","bal"],"funds":[{"short":"オルカン","type":"world","account":"tn","idx":0,"dd":[-0.19,0.0,-0.14,0.0,0.0,-0.17,0.0,-0.5,-0.93,0.0,0.0,0.0,0.0,-0.35,0.0,0.0,-3.34,-2.52,-2.21,-1.56,-1.49,-0.45,0.0,-0.3,0.0,-0.14,0.0,-0.53,-0.88,-0.44,0.0,-0.51,-0.2,-0.09,-0.22,-0.51,-0.35,-0.24,-0.23,0.0,0.0,-0.34,-0.01,0.0,0.0,0.0,-0.67,-0.44,0.0,0.0,-0.2,0.0,0.0,0.0,0.0,-0.15,-0.36,0.0,0.0,0.0,0.0,0.0,-0.2,-1.79,-2.38,-2.28,-2.85,-2.22,-1.46,-0.78,-0.91,-0.1,0.0,0.0,-0.5,0.0,0.0,0.0,-1.7,-1.0,-2.23,-1.82,-0.18,0.0,0.0,-1.4,-1.84,-2.33,-3.19,-1.93,-2.73,-1.72,-1.02,-0.44,-0.01,-0.11,-0.6,-0.22,-0.15,-0.13,0.0,0.0,0.0,-0.05,0.0,-0.49,-1.27,-1.93,-2.14,-1.31,0.0,0.0,0.0,0.0,0.0,0.0,-0.19,0.0,0.0,0.0,-0.26,-0.17,0.0,0.0,-0.61,-0.35,-1.0,-0.85,-2.26,-1.52,-0.57,-2.65,-2.61,-2.98,-2.51,-2.38,-2.12,-1.51,-1.47,-1.36,-2.53,-0.85,-0.36,-2.02,-3.44,-3.43,-3.32,-3.17,-1.71,-1.73,-1.94,-0.72,0.0,-0.47,-0.46,-0.49,-2.27,-2.45,-2.35,-2.98,-3.13,-2.29,-1.99,-3.24,-3.9,-3.02,-2.55,-3.28,-5.74,-5.65,-5.38,-4.22,-5.68,-6.82,-7.28,-5.64,-4.55,-4.15,-4.1,-3.65,-3.88,-1.13,-0.57,-0.17,0.0,0.0,0.0,0.0,0.0,-0.14,-0.58,-0.02,-0.14,0.0,0.0,-0.25,-1.24,0.0,0.0,0.0,0.0,-0.14,0.0,0.0,-1.22,-1.1,-1.77,-0.77,-0.17,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-0.76,-0.54,-2.74,-2.92,-2.82,-4.08,-2.95,-1.8,-0.35,-0.42,-0.97,-0.16,0.0,-0.18,-1.75,-1.69,-1.51,-1.97,-0.75,0.0,-0.28,-0.96,-0.32,0.0,-0.6,-0.96,-0.51]},{"short":"日経225","type":"jp","account":"tn","idx":1,"dd":[-4.53,-4.72,-4.99,-4.46,-4.5,-3.92,-4.12,-4.23,-0.86,0.0,-0.9,-2.0,-2.76,-2.81,-1.81,-2.46,-3.68,-3.06,-2.48,-1.85,-0.02,0.0,0.0,-1.46,0.0,0.0,-0.39,-1.89,-2.53,-2.48,-2.08,-3.03,-2.74,-1.97,-2.23,-3.44,-3.17,-4.01,-2.55,-1.55,-0.12,-0.53,0.0,0.0,0.0,0.0,-0.25,0.0,-0.58,0.0,0.0,0.0,-0.88,-0.9,-1.14,-1.99,-1.13,0.0,0.0,-0.0,-0.45,0.0,-1.05,-3.58,-1.87,-0.63,-2.07,0.0,0.0,-0.0,-1.36,-0.03,0.0,-0.57,0.0,0.0,0.0,-1.74,-4.17,-2.92,-4.07,-2.86,-2.98,-2.58,-2.16,-3.89,-4.0,-7.1,-7.39,-4.94,-7.23,-7.18,-5.45,-4.31,-4.14,-5.95,-5.96,-4.89,-2.67,-3.69,-3.52,-3.38,-3.48,-4.35,-3.05,-4.32,-5.81,-5.56,-6.54,-5.58,-3.88,-3.86,-3.99,-3.87,-3.22,-3.54,-3.9,-1.05,0.0,-1.07,-2.67,-1.11,0.0,0.0,-0.42,-0.74,-1.39,-2.49,-2.88,-1.2,-0.92,-2.69,-1.86,-1.8,-1.79,-1.87,-3.11,0.0,-0.76,-1.63,-0.84,0.0,0.0,-0.03,-1.22,-1.46,-1.88,-0.88,-0.32,-1.44,-0.58,0.0,0.0,0.0,-1.36,-4.38,-7.82,-6.08,-5.48,-10.4,-7.8,-6.5,-7.48,-8.56,-8.67,-8.76,-6.15,-9.33,-12.49,-11.21,-8.68,-8.94,-9.33,-11.26,-12.66,-8.07,-10.28,-9.15,-8.65,-8.62,-3.71,-4.4,-2.66,-3.38,-1.02,-0.58,0.0,-1.74,-1.17,-0.29,0.0,-0.76,0.0,0.0,-1.01,-2.04,-1.67,0.0,-0.2,-0.68,-0.16,0.0,-0.98,-2.92,-3.88,-4.29,-5.48,-2.52,0.0,0.0,-0.25,-0.25,-0.72,0.0,0.0,-0.3,0.0,-1.36,-2.66,-6.41,-4.36,-6.17,-6.12,-3.5,0.0,0.0,0.0,0.0,0.0,0.0,-3.57,-4.4,-0.0,-4.16,-3.94,-3.14,-2.57,-4.98,-3.58,-3.59,-5.64,-7.63,-6.35,-5.22]},{"short":"SMT 新興国株式","type":"em","account":"tn","idx":2,"dd":[-1.0,-0.16,-0.08,0.0,0.0,-0.33,0.0,0.0,-1.01,0.0,0.0,-0.5,-0.4,-0.59,-0.01,0.0,-3.09,-2.74,-1.69,-1.75,-0.64,-0.38,-0.44,0.0,0.0,0.0,0.0,-0.33,-1.15,-0.4,-0.56,0.0,-0.55,-0.96,-1.89,-1.97,-1.35,-0.51,-0.82,-1.04,0.0,-0.08,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-0.21,-0.1,0.0,0.0,-1.58,-0.74,-0.82,-0.93,0.0,0.0,0.0,0.0,0.0,0.0,-1.91,-3.38,-2.03,-1.57,-2.2,-0.88,-0.23,-0.12,0.0,0.0,0.0,-0.92,0.0,0.0,0.0,-1.89,-1.99,-1.84,-2.16,-0.69,-0.41,0.0,0.0,-1.76,-1.3,-2.91,-1.95,-1.09,-3.51,-2.85,-1.99,-1.67,-2.33,-2.42,-1.83,-2.24,-2.08,-1.43,-0.85,-0.83,-1.07,-1.59,-0.62,-2.29,-4.0,-2.96,-2.86,-1.11,-0.55,-0.34,-0.36,0.0,0.0,0.0,0.0,0.0,0.0,-0.21,-0.73,0.0,0.0,0.0,-0.08,-0.24,0.0,-0.37,-0.19,0.0,-1.76,-2.01,-1.57,0.0,0.0,-1.07,-2.18,0.0,0.0,-1.61,-1.3,0.0,-0.11,-0.16,-0.83,-0.54,-0.63,0.0,0.0,0.0,0.0,0.0,-0.14,-0.47,-1.35,-4.72,-8.41,-6.33,-5.96,-8.59,-5.69,-4.64,-5.95,-7.16,-6.39,-5.49,-4.23,-7.56,-10.34,-8.97,-6.97,-8.47,-8.96,-10.49,-11.41,-8.1,-8.99,-8.56,-8.02,-7.64,-2.93,-3.24,-2.07,-2.64,-1.09,-0.18,0.0,-0.5,-0.29,0.0,-0.29,-0.64,0.0,0.0,-0.19,-2.94,0.0,0.0,-0.47,0.0,-1.13,-0.63,0.0,-2.45,-2.65,-4.11,-4.07,-1.83,-1.39,0.0,0.0,0.0,-0.84,0.0,0.0,0.0,-0.32,-1.83,-4.05,-7.08,-4.25,-6.46,-6.43,-3.61,-1.2,-0.42,-0.11,0.0,0.0,0.0,-3.76,-3.97,-2.5,-5.26,-4.89,-3.81,-3.87,-6.54,-4.39,-3.97,-5.75,-6.25,-6.61]},{"short":"SMT グローバルREIT","type":"reit","account":"tn","idx":3,"dd":[-9.62,-8.71,-8.46,-7.54,-7.72,-7.58,-7.56,-7.76,-7.06,-6.89,-6.89,-6.77,-7.59,-6.37,-6.79,-7.16,-9.51,-9.07,-8.0,-8.39,-8.34,-8.6,-8.44,-8.35,-8.45,-8.18,-8.57,-7.35,-7.12,-6.75,-6.09,-6.67,-6.65,-5.86,-6.24,-5.59,-5.52,-6.31,-6.63,-5.81,-4.68,-5.5,-5.63,-5.62,-4.44,-4.44,-5.61,-5.77,-4.9,-5.22,-4.78,-5.04,-4.88,-4.39,-4.52,-4.35,-4.76,-4.94,-3.01,-3.16,-2.48,-2.7,-3.0,-3.77,-3.58,-3.01,-3.33,-2.31,-1.7,-1.31,-0.42,-0.17,0.0,0.0,-2.19,-3.33,-2.41,-2.14,-2.87,-2.44,-3.08,-1.27,-1.22,-0.43,-0.64,-1.82,-1.96,-2.0,-1.69,-1.36,-1.52,-0.6,-0.25,0.0,0.0,-0.19,-1.2,-1.19,-1.36,-1.96,-1.99,-2.4,-2.18,-2.65,-2.45,-2.18,-2.18,-3.12,-2.2,-2.26,-1.42,-1.43,-1.65,-1.25,-0.89,-0.87,-0.64,-0.61,-0.97,-0.36,-0.45,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-1.2,-1.15,-1.64,-3.6,-4.12,-4.99,-5.25,-3.85,-2.67,-3.19,-2.43,-0.83,-0.68,0.0,0.0,-0.35,-0.83,0.0,0.0,0.0,-0.22,-0.18,0.0,0.0,0.0,0.0,0.0,0.0,-1.09,-1.71,-2.07,-2.48,-3.15,-2.41,-2.8,-3.36,-3.66,-2.78,-2.41,-3.11,-6.76,-7.05,-7.12,-6.57,-6.86,-7.45,-7.27,-6.55,-5.81,-4.53,-4.53,-4.48,-4.69,-2.62,-1.69,-1.0,-1.17,-0.11,0.0,0.0,0.0,0.0,-1.13,-1.99,-0.81,-1.18,-1.5,-1.18,-1.69,-1.15,-1.42,-1.13,-0.88,-0.82,-1.12,-0.86,-2.16,-1.41,-1.22,-0.12,0.0,-0.06,0.0,0.0,-0.01,-0.57,-1.2,-2.82,-2.4,-2.5,-1.4,-0.66,-1.76,0.0,0.0,-0.05,0.0,-0.45,-0.18,-2.09,-1.91,-1.74,-0.68,0.0,0.0,0.0,0.0,0.0,-1.4,-1.41,-1.04,-0.76,-0.99,0.0,-1.33,-1.4]},{"short":"先進国リート(除く日本)","type":"reit","account":"tn","idx":4,"dd":[-9.57,-8.65,-8.4,-7.48,-7.67,-7.51,-7.5,-7.7,-6.98,-6.81,-6.81,-6.69,-7.51,-6.29,-6.72,-7.09,-9.43,-8.99,-7.93,-8.31,-8.25,-8.51,-8.35,-8.26,-8.35,-8.08,-8.47,-7.25,-7.02,-6.64,-5.98,-6.56,-6.54,-5.76,-6.13,-5.48,-5.42,-6.21,-6.53,-5.72,-4.57,-5.41,-5.54,-5.53,-4.35,-4.34,-5.51,-5.67,-4.79,-5.1,-4.66,-4.91,-4.76,-4.26,-4.39,-4.22,-4.63,-4.82,-2.87,-3.02,-2.34,-2.56,-2.87,-3.64,-3.44,-2.86,-3.18,-2.16,-1.55,-1.15,-0.26,0.0,0.0,0.0,-2.19,-3.34,-2.43,-2.14,-2.87,-2.44,-3.08,-1.27,-1.22,-0.42,-0.63,-1.81,-1.95,-1.99,-1.68,-1.36,-1.52,-0.6,-0.24,0.0,0.0,-0.19,-1.21,-1.19,-1.36,-1.97,-1.99,-2.4,-2.18,-2.64,-2.45,-2.17,-2.16,-3.11,-2.19,-2.25,-1.41,-1.42,-1.64,-1.24,-0.86,-0.84,-0.61,-0.58,-0.94,-0.32,-0.41,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-1.21,-1.16,-1.64,-3.59,-4.11,-4.98,-5.24,-3.83,-2.67,-3.19,-2.44,-0.83,-0.68,0.0,0.0,-0.35,-0.83,0.0,0.0,0.0,-0.23,-0.18,0.0,0.0,0.0,0.0,0.0,0.0,-1.09,-1.68,-2.04,-2.44,-3.14,-2.39,-2.78,-3.34,-3.63,-2.75,-2.37,-3.07,-6.73,-7.02,-7.09,-6.53,-6.82,-7.4,-7.22,-6.5,-5.75,-4.46,-4.46,-4.41,-4.62,-2.55,-1.62,-0.93,-1.1,-0.04,0.0,0.0,0.0,0.0,-1.13,-1.99,-0.81,-1.17,-1.49,-1.18,-1.68,-1.13,-1.41,-1.11,-0.86,-0.8,-1.1,-0.84,-2.15,-1.4,-1.2,-0.11,0.0,-0.05,0.0,0.0,-0.01,-0.57,-1.2,-2.83,-2.39,-2.49,-1.38,-0.64,-1.74,0.0,0.0,-0.05,0.0,-0.46,-0.18,-2.09,-1.91,-1.73,-0.68,0.0,0.0,0.0,0.0,0.0,-1.4,-1.41,-1.03,-0.75,-0.99,0.0,-1.34,-1.39]},{"short":"たわら 先進国債券","type":"devbond","account":"tn","idx":5,"dd":[-3.52,-3.31,-3.24,-2.92,-2.34,-2.55,-2.4,-2.6,-2.9,-2.91,-2.65,-2.42,-2.46,-2.45,-2.31,-1.37,-2.56,-2.76,-2.31,-2.13,-2.29,-1.86,-2.22,-2.52,-2.31,-2.52,-2.49,-2.58,-2.6,-2.23,-2.33,-2.76,-2.49,-2.46,-2.53,-2.31,-2.34,-1.88,-2.04,-1.68,-0.96,-1.23,-1.5,-1.38,-1.3,-1.14,-1.4,-1.24,-0.92,-1.08,-1.1,-0.82,-0.58,-0.7,-0.71,-1.11,-1.66,-1.52,0.0,0.0,0.0,0.0,-0.07,-0.01,-0.21,-0.54,-0.58,-0.23,-0.47,0.0,0.0,0.0,0.0,-0.11,-0.67,-0.27,0.0,-0.11,-0.79,-0.57,-0.74,-0.25,0.0,0.0,0.0,-0.25,-0.53,-0.15,0.0,0.0,0.0,-0.18,-0.12,-0.16,0.0,-0.49,-0.96,-0.76,-0.83,-1.16,-1.21,-0.96,-0.44,-0.72,-0.62,-0.63,-1.04,-1.2,-0.67,-0.41,0.0,-0.43,-0.53,-0.65,-0.21,-0.23,-0.06,-0.1,-0.23,-0.28,-0.09,-0.09,0.0,0.0,-0.29,-0.29,-1.11,-0.67,-0.62,-0.58,-0.13,-1.99,-2.14,-2.9,-2.56,-2.31,-1.59,-1.62,-1.27,-0.83,-0.81,-0.44,-0.64,-2.31,-2.31,-2.01,-1.88,-1.9,-1.2,-1.03,-0.92,-0.29,0.0,-0.17,0.0,0.0,-0.6,-0.98,-0.92,-0.67,-0.74,-0.33,-0.5,-0.77,-1.06,-0.69,-0.47,-0.54,-1.26,-1.48,-1.41,-0.79,-1.37,-1.37,-1.14,-1.25,-1.13,-0.69,-0.81,-0.59,-0.99,-0.25,-0.1,0.0,-0.11,0.0,-0.08,0.0,0.0,0.0,-0.19,-0.17,-0.1,-0.08,-0.2,-0.22,-1.85,-1.89,-1.6,-1.38,-1.37,-1.55,-1.51,-1.23,-1.72,-1.51,-1.82,-1.28,-1.14,-0.97,-0.71,-0.44,-0.27,-0.17,0.0,-0.12,0.0,-0.37,-0.28,-0.55,-0.74,-0.46,-0.46,-0.26,-0.04,0.0,0.0,-0.26,-0.12,-0.03,-0.12,-0.19,0.0,0.0,0.0,0.0,0.0,-0.28,-0.93,-0.72,-0.36,-0.64,-0.81,-0.82]},{"short":"日立 外国株式","type":"dev","account":"dc","idx":6,"dd":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.0]},{"short":"日立 国内株式","type":"jp","account":"dc","idx":7,"dd":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.0]},{"short":"日立 外国債券","type":"devbond","account":"dc","idx":8,"dd":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.0]},{"short":"日立 国内債券","type":"jpbond","account":"dc","idx":9,"dd":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.0]},{"short":"日立 バランス70","type":"bal","account":"dc","idx":10,"dd":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.0]},{"short":"三菱UFJ スリム全世界","type":"world","account":"dc","idx":11,"dd":[-0.19,0.0,-0.14,0.0,0.0,-0.17,0.0,-0.5,-0.93,0.0,0.0,0.0,0.0,-0.35,0.0,0.0,-3.34,-2.52,-2.21,-1.56,-1.49,-0.45,0.0,-0.3,0.0,-0.14,0.0,-0.53,-0.88,-0.44,0.0,-0.51,-0.2,-0.09,-0.22,-0.51,-0.35,-0.24,-0.23,0.0,0.0,-0.34,-0.01,0.0,0.0,0.0,-0.67,-0.44,0.0,0.0,-0.2,0.0,0.0,0.0,0.0,-0.15,-0.36,0.0,0.0,0.0,0.0,0.0,-0.2,-1.79,-2.38,-2.28,-2.85,-2.22,-1.46,-0.78,-0.91,-0.1,0.0,0.0,-0.5,0.0,0.0,0.0,-1.7,-1.0,-2.23,-1.82,-0.18,0.0,0.0,-1.4,-1.84,-2.33,-3.19,-1.93,-2.73,-1.72,-1.02,-0.44,-0.01,-0.11,-0.6,-0.22,-0.15,-0.13,0.0,0.0,0.0,-0.05,0.0,-0.49,-1.27,-1.93,-2.14,-1.31,0.0,0.0,0.0,0.0,0.0,0.0,-0.19,0.0,0.0,0.0,-0.26,-0.17,0.0,0.0,-0.61,-0.35,-1.0,-0.85,-2.26,-1.52,-0.57,-2.65,-2.61,-2.98,-2.51,-2.38,-2.12,-1.51,-1.47,-1.36,-2.53,-0.85,-0.36,-2.02,-3.44,-3.43,-3.32,-3.17,-1.71,-1.73,-1.94,-0.72,0.0,-0.47,-0.46,-0.49,-2.27,-2.45,-2.35,-2.98,-3.13,-2.29,-1.99,-3.24,-3.9,-3.02,-2.55,-3.28,-5.74,-5.65,-5.38,-4.22,-5.68,-6.82,-7.28,-5.64,-4.55,-4.15,-4.1,-3.65,-3.88,-1.13,-0.57,-0.17,0.0,0.0,0.0,0.0,0.0,-0.14,-0.58,-0.02,-0.14,0.0,0.0,-0.25,-1.24,0.0,0.0,0.0,0.0,-0.14,0.0,0.0,-1.22,-1.1,-1.77,-0.77,-0.17,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-0.76,-0.54,-2.74,-2.92,-2.82,-4.08,-2.95,-1.8,-0.35,-0.42,-0.97,-0.16,0.0,-0.18,-1.75,-1.69,-1.51,-1.97,-0.75,0.0,-0.28,-0.96,-0.32,0.0,-0.6,-0.96,-0.51]},{"short":"三井住友DC 外国リート","type":"reit","account":"dc","idx":12,"dd":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.0]},{"short":"ニッセイ Jリート","type":"reit","account":"dc","idx":13,"dd":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.0]}],"table":[{"short":"オルカン","account":"tn","idx":0,"dd0":-0.51,"dDay":0.45,"dWk":0.44,"dMo":3.57},{"short":"日経225","account":"tn","idx":1,"dd0":-5.22,"dDay":1.13,"dWk":-1.64,"dMo":0.9},{"short":"SMT 新興国株式","account":"tn","idx":2,"dd0":-6.61,"dDay":-0.35,"dWk":-0.07,"dMo":-0.15},{"short":"SMT グローバルREIT","account":"tn","idx":3,"dd0":-1.4,"dDay":-0.06,"dWk":-0.35,"dMo":-1.4},{"short":"先進国リート(除く日本)","account":"tn","idx":4,"dd0":-1.39,"dDay":-0.06,"dWk":-0.36,"dMo":-1.39},{"short":"たわら 先進国債券","account":"tn","idx":5,"dd0":-0.82,"dDay":-0.01,"dWk":0.11,"dMo":-0.36},{"short":"日立 外国株式","account":"dc","idx":6,"dd0":0.0,"dDay":null,"dWk":null,"dMo":null},{"short":"日立 国内株式","account":"dc","idx":7,"dd0":0.0,"dDay":null,"dWk":null,"dMo":null},{"short":"日立 外国債券","account":"dc","idx":8,"dd0":0.0,"dDay":null,"dWk":null,"dMo":null},{"short":"日立 国内債券","account":"dc","idx":9,"dd0":0.0,"dDay":null,"dWk":null,"dMo":null},{"short":"日立 バランス70","account":"dc","idx":10,"dd0":0.0,"dDay":null,"dWk":null,"dMo":null},{"short":"三菱UFJ スリム全世界","account":"dc","idx":11,"dd0":-0.51,"dDay":0.45,"dWk":0.44,"dMo":3.57},{"short":"三井住友DC 外国リート","account":"dc","idx":12,"dd0":0.0,"dDay":null,"dWk":null,"dMo":null},{"short":"ニッセイ Jリート","account":"dc","idx":13,"dd0":0.0,"dDay":null,"dWk":null,"dMo":null}],"accounts":{"tn":{"now":-2.75},"dc":{"now":0.0}},"benchmarks":{},"pending_bench":{"dev":["MSCIコクサイ（円）","S&P500（円ベース）"]}};
+  const iso = DATA.dates;
+  const dates = iso.map(s=>Date.parse(s));
+  const N = dates.length;
+  const funds = DATA.funds;              // {short,type,account,idx,dd:[nullable]}
+  const NCOL = funds.length || 1;
+  const typeNames = DATA.types;
+  const typeOrder = DATA.type_order;
+  const BENCH = DATA.benchmarks || {};   // {tab:[{label,h,s,dd:[nullable]}]}
+  const pendingBench = DATA.pending_bench || {};
+
+  document.getElementById('m-asof').textContent = DATA.asof || '—';
+  document.getElementById('m-nfunds').textContent = funds.length;
+  document.getElementById('m-gen').textContent = DATA.generated || '—';
+  document.getElementById('now1').textContent = fmtNow(DATA.accounts.tn);
+  document.getElementById('now2').textContent = fmtNow(DATA.accounts.dc);
+  function fmtNow(a){ return (a && a.now!=null) ? a.now.toFixed(1)+'%' : '—'; }
+
+  const cvs=document.getElementById('chart'), ctx=cvs.getContext('2d'), tip=document.getElementById('tip'),
+        legendEl=document.getElementById('legend'), tabsEl=document.getElementById('tabs'), benchnoteEl=document.getElementById('benchnote');
+  const css=getComputedStyle(document.documentElement); const c=v=>css.getPropertyValue(v).trim();
+  function isDark(){const t=document.documentElement.getAttribute('data-theme');if(t)return t==='dark';return window.matchMedia('(prefers-color-scheme: dark)').matches;}
+  function colorFor(i){ const l=isDark()?66:43, s=isDark()?58:62; return 'hsl('+((i*(360/NCOL)+18)%360).toFixed(0)+','+s+'%,'+l+'%)'; }
+  function benchColor(b){ const l=isDark()?64:44; return 'hsl('+b.h+','+b.s+'%,'+l+'%)'; }
+
+  const tabs=[{k:"all",n:"全銘柄"}].concat(typeOrder.filter(k=>funds.some(f=>f.type===k)).map(k=>({k,n:typeNames[k]})));
+  const Y_TOP=3, Y_BOT=-30;
+  let curTab="all", series=[], geo=null;
+
+  function currentFunds(){ return curTab==="all"?funds:funds.filter(f=>f.type===curTab); }
+  function rebuild(){
+    series=currentFunds().map(f=>({label:f.short, dd:f.dd, color:colorFor(f.idx), hidden:false, bench:false}));
+    const bm=BENCH[curTab]; if(bm) bm.forEach(b=>series.push({label:b.label, dd:b.dd, color:benchColor(b), hidden:false, bench:true}));
+    buildLegend(); updateBenchNote(); draw(null);
+  }
+  function updateBenchNote(){
+    const pend=pendingBench[curTab];
+    benchnoteEl.textContent = (pend && !(BENCH[curTab])) ? ('指数（'+pend.join('・')+'）は次段階で実データを接続予定です。') : '';
+  }
+  function buildLegend(){
+    legendEl.innerHTML='';
+    series.forEach(s=>{
+      const b=document.createElement('button'); b.className='chip'+(s.hidden?' off':''); b.type='button';
+      b.innerHTML=(s.bench?'<span class="dash" style="border-color:'+s.color+'"></span>':'<span class="dot" style="background:'+s.color+'"></span>')+'<span class="nm">'+s.label+'</span>';
+      b.addEventListener('click',()=>{ s.hidden=!s.hidden; b.classList.toggle('off',s.hidden); draw(null); });
+      legendEl.appendChild(b);
+    });
+  }
+  function buildTabs(){
+    tabsEl.innerHTML='';
+    tabs.forEach(tb=>{ const b=document.createElement('button'); b.textContent=tb.n; b.setAttribute('role','tab');
+      b.setAttribute('aria-selected', tb.k===curTab); b.addEventListener('click',()=>{ curTab=tb.k; buildTabs(); rebuild(); });
+      tabsEl.appendChild(b); });
+  }
+
+  function lastValid(dd){ for(let i=N-1;i>=0;i--) if(dd[i]!=null) return i; return -1; }
+
+  function draw(hoverX){
+    const box=cvs.parentElement.getBoundingClientRect(); const W=box.width, H=380, dpr=window.devicePixelRatio||1;
+    cvs.width=W*dpr; cvs.height=H*dpr; cvs.style.height=H+'px'; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+    const padL=42,padR=14,padT=12,padB=26, plotW=W-padL-padR, plotH=H-padT-padB;
+    const x0=dates[0], x1=dates[N-1]||dates[0]+1; const X=t=>padL+(t-x0)/(x1-x0||1)*plotW; const Yv=v=>padT+(Y_TOP-v)/(Y_TOP-Y_BOT)*plotH;
+    geo={padL,padT,padB,W,H,X};
+
+    ctx.fillStyle=c('--watch-bg'); ctx.fillRect(padL,Yv(-10),plotW,Yv(-20)-Yv(-10));
+    ctx.fillStyle=c('--deep-bg');  ctx.fillRect(padL,Yv(-20),plotW,Yv(Y_BOT)-Yv(-20));
+
+    ctx.font='11px '+c('--mono'); ctx.textBaseline='middle';
+    [0,-5,-10,-15,-20,-25,-30].forEach(g=>{ const y=Yv(g), ref=(g===-10||g===-20);
+      ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y);
+      if(ref){ctx.setLineDash([5,4]);ctx.lineWidth=1.4;ctx.strokeStyle=c(g===-10?'--zone-watch':'--zone-deep');}
+      else{ctx.setLineDash([]);ctx.lineWidth=1;ctx.strokeStyle=c('--grid');}
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle=ref?c(g===-10?'--zone-watch':'--zone-deep'):c('--faint'); ctx.textAlign='right'; ctx.fillText(g+'%',padL-6,y);
+    });
+
+    ctx.textAlign='center'; ctx.textBaseline='top'; let lastM=-1;
+    for(let i=0;i<N;i++){ const d=new Date(dates[i]), m=d.getMonth(); if(m!==lastM){ lastM=m; const x=X(dates[i]);
+      ctx.strokeStyle=c('--grid'); ctx.lineWidth=1; ctx.globalAlpha=.5; ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,H-padB); ctx.stroke(); ctx.globalAlpha=1;
+      ctx.fillStyle=c('--faint'); ctx.fillText(m===0?d.getFullYear()+'/1':(m+1)+'月',x,H-padB+5);
+    }}
+
+    series.forEach(s=>{ if(s.hidden)return;
+      ctx.strokeStyle=s.color; ctx.lineWidth=s.bench?1.9:1.6; ctx.lineJoin='round'; ctx.setLineDash(s.bench?[6,4]:[]); ctx.globalAlpha=.92;
+      ctx.beginPath(); let pen=false;
+      for(let i=0;i<N;i++){ const v=s.dd[i]; if(v==null){pen=false;continue;} const x=X(dates[i]),y=Yv(v); if(!pen){ctx.moveTo(x,y);pen=true;}else ctx.lineTo(x,y); }
+      ctx.stroke(); ctx.globalAlpha=1; ctx.setLineDash([]);
+      const li=lastValid(s.dd); if(li>=0){ const x=X(dates[li]),y=Yv(s.dd[li]); ctx.beginPath(); ctx.arc(x,y,s.bench?2.6:3,0,7); ctx.fillStyle=s.color; ctx.fill(); }
+    });
+
+    if(hoverX!=null){ let bi=0,bd=1e9; for(let i=0;i<N;i++){const d=Math.abs(X(dates[i])-hoverX);if(d<bd){bd=d;bi=i;}}
+      const x=X(dates[bi]);
+      ctx.strokeStyle=c('--line-strong'); ctx.setLineDash([3,3]); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,H-padB); ctx.stroke(); ctx.setLineDash([]);
+      series.forEach(s=>{ if(s.hidden||s.dd[bi]==null)return; const y=Yv(s.dd[bi]); ctx.beginPath(); ctx.arc(x,y,3.5,0,7); ctx.fillStyle=c('--card'); ctx.fill(); ctx.lineWidth=1.8; ctx.strokeStyle=s.color; ctx.stroke(); });
+      showTip(bi,x);
+    } else tip.style.opacity=0;
+  }
+
+  function showTip(bi,x){
+    const d=new Date(dates[bi]); const ds=d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();
+    const vis=series.filter(s=>!s.hidden && s.dd[bi]!=null).map(s=>({label:s.label,color:s.color,v:s.dd[bi]})).sort((a,b)=>a.v-b.v);
+    if(!vis.length){ tip.style.opacity=0; return; }
+    const cap=8; let html='<div class="d">'+ds+'</div>';
+    vis.slice(0,cap).forEach(o=>{ html+='<div class="r"><span class="dot" style="background:'+o.color+'"></span><span class="nm">'+o.label+'</span><span class="vv">'+o.v.toFixed(1)+'%</span></div>'; });
+    if(vis.length>cap) html+='<div class="more">ほか '+(vis.length-cap)+' 件</div>';
+    tip.innerHTML=html; tip.style.opacity=1;
+    const tw=tip.offsetWidth; let left=x+12; if(left+tw>geo.W) left=x-tw-12; tip.style.left=Math.max(4,left)+'px'; tip.style.top=(geo.padT+6)+'px';
+  }
+
+  document.getElementById('showAll').addEventListener('click',()=>{ series.forEach(s=>s.hidden=false); buildLegend(); draw(null); });
+  document.getElementById('hideAll').addEventListener('click',()=>{ series.forEach(s=>s.hidden=true); buildLegend(); draw(null); });
+  cvs.addEventListener('pointermove',e=>{const r=cvs.getBoundingClientRect();draw(e.clientX-r.left);});
+  cvs.addEventListener('pointerleave',()=>draw(null));
+  window.addEventListener('resize',()=>draw(null));
+  const mq=window.matchMedia('(prefers-color-scheme: dark)'); mq.addEventListener&&mq.addEventListener('change',()=>rebuild());
+  new MutationObserver(()=>{rebuild();buildTable();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+  // ---- テーブル ----
+  function zoneOf(dd){ const a=-dd; return a>=20?'deep':a>=10?'watch':'safe'; }
+  function chgCell(v){ if(v==null) return '<td class="chg flat">—</td>';
+    const cls=v<-0.05?'down':v>0.05?'up':'flat'; const ar=cls==='down'?'▼':cls==='up'?'▲':'±';
+    return '<td class="chg '+cls+'">'+ar+(cls==='flat'?'0.0':Math.abs(v).toFixed(1))+'</td>'; }
+  function buildTable(){
+    const tb=document.getElementById('tbody'); tb.innerHTML='';
+    [{a:'tn',n:'特定口座 ＋ NISA'},{a:'dc',n:'DC ＋ iDeCo'}].forEach(g=>{
+      const gr=document.createElement('tr'); gr.className='grouprow'; gr.innerHTML='<td colspan="5">'+g.n+'</td>'; tb.appendChild(gr);
+      DATA.table.filter(r=>r.account===g.a).forEach(r=>{
+        const z = r.dd0==null?'safe':zoneOf(r.dd0);
+        const tr=document.createElement('tr');
+        tr.innerHTML='<td class="nm"><span class="dot" style="background:'+colorFor(r.idx)+'"></span>'+r.short+'</td>'+
+          '<td class="dd0 '+z+'">'+(r.dd0==null?'—':r.dd0.toFixed(1)+'%')+'</td>'+
+          chgCell(r.dDay)+chgCell(r.dWk)+chgCell(r.dMo);
+        tb.appendChild(tr);
+      });
+    });
+  }
+
+  buildTabs(); rebuild(); buildTable();
+})();
+</script>
+</body>
+</html>
